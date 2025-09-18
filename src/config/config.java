@@ -150,17 +150,106 @@ public class config {
         return false;
     }
 
-    // Placeholder methods to implement later
     public void viewProducts() {
-        throw new UnsupportedOperationException("Not supported yet.");
+    String sql = "SELECT product_id, name, price, stock FROM tbl_products";
+    try (Connection conn = this.connectDB();
+         PreparedStatement pstmt = conn.prepareStatement(sql);
+         ResultSet rs = pstmt.executeQuery()) {
+        System.out.println("-------------------------------------------------");
+        System.out.printf("%-10s %-20s %-10s %-10s%n", "Product ID", "Name", "Price", "Stock");
+        System.out.println("-------------------------------------------------");
+        boolean hasProducts = false;
+        while (rs.next()) {
+            hasProducts = true;
+            int productId = rs.getInt("product_id");
+            String name = rs.getString("name");
+            double price = rs.getDouble("price");
+            int stock = rs.getInt("stock");
+            System.out.printf("%-10d %-20s %-10.2f %-10d%n", productId, name, price, stock);
+        }
+        if (!hasProducts) {
+            System.out.println("No products available.");
+        }
+        System.out.println("-------------------------------------------------");
+    } catch (SQLException e) {
+        System.out.println("Error viewing products: " + e.getMessage());
     }
+}
 
-    public void makeTransaction(String username, int productId, int quantity) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public void makeTransaction(String username,int user_id, int productId, int quantity) {
+    String usersql = "SELECT user_id From tbl_user = ?";
+    String productSql = "SELECT price, stock FROM tbl_products WHERE product_id = ?";
+    String insertTransactionSql = "INSERT INTO tbl_transactions(username, user_id, product_id, quantity, total_price, status, transaction_date) VALUES (?,?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)";
+    String updateStockSql = "UPDATE tbl_products SET stock = stock - ? WHERE product_id = ?";
+
+    try (Connection conn = this.connectDB()) {
+        conn.setAutoCommit(false); // Start transaction
+
+        // Check product availability
+        try (PreparedStatement productStmt = conn.prepareStatement(productSql)) {
+            productStmt.setInt(1, productId);
+            try (ResultSet rs = productStmt.executeQuery()) {
+                if (!rs.next()) {
+                    System.out.println("Product not found.");
+                    conn.rollback();
+                    return;
+                }
+
+                double price = rs.getDouble("price");
+                int stock = rs.getInt("stock");
+
+                if (stock < quantity) {
+                    System.out.println("Insufficient stock. Available: " + stock);
+                    conn.rollback();
+                    return;
+                }
+
+                double totalPrice = price * quantity;
+
+                // Insert transaction
+                try (PreparedStatement insertStmt = conn.prepareStatement(insertTransactionSql)) {
+                    insertStmt.setString(1, username);
+                    insertStmt.setInt(2, productId);
+                    insertStmt.setInt(3, quantity);
+                    insertStmt.setDouble(4, totalPrice);
+
+                    int rowsInserted = insertStmt.executeUpdate();
+                    if (rowsInserted == 0) {
+                        System.out.println("Failed to create transaction.");
+                        conn.rollback();
+                        return;
+                    }
+                }
+
+                // Update product stock
+                try (PreparedStatement updateStockStmt = conn.prepareStatement(updateStockSql)) {
+                    updateStockStmt.setInt(1, quantity);
+                    updateStockStmt.setInt(2, productId);
+
+                    int rowsUpdated = updateStockStmt.executeUpdate();
+                    if (rowsUpdated == 0) {
+                        System.out.println("Failed to update product stock.");
+                        conn.rollback();
+                        return;
+                    }
+                }
+
+                conn.commit();
+                System.out.println("Transaction successful! Total price: " + totalPrice);
+            }
+        } catch (SQLException e) {
+            conn.rollback();
+            System.out.println("Error during transaction: " + e.getMessage());
+        } finally {
+            conn.setAutoCommit(true);
+        }
+    } catch (SQLException e) {
+        System.out.println("Database error: " + e.getMessage());
     }
+}
 
     public void makePayment(String username, int transactionId) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     public void updateProduct(int updateId, String newName, double newPrice, int newStock, String username) {
@@ -169,5 +258,6 @@ public class config {
 
     public void deleteProduct(int deleteId, String username) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
+   }
+ 
 }

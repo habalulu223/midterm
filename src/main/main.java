@@ -66,7 +66,7 @@ public class main {
     // Regular user menu
     private static void userMenu(Scanner sc, config cf, String username) {
         while (true) {
-            System.out.println("\nUser  Menu - Choose an option:");
+            System.out.println("\nUser   Menu - Choose an option:");
             System.out.println("1. View Products");
             System.out.println("2. Make Transaction");
             System.out.println("3. Make Payment");
@@ -80,12 +80,17 @@ public class main {
                     cf.viewProducts();
                     break;
                 case 2:
+                    System.out.println("Available Products:");
+                    cf.viewProducts();  // Display products before transaction
                     System.out.print("Enter product id to buy: ");
                     int productId = sc.nextInt();
                     System.out.print("Enter quantity: ");
                     int quantity = sc.nextInt();
                     sc.nextLine();
-                    cf.makeTransaction(username, productId, quantity);
+            {
+                int user_id = 0;
+                cf.makeTransaction(username,user_id, productId, quantity);
+            }
                     break;
                 case 3:
                     System.out.print("Enter transaction id to pay: ");
