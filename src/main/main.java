@@ -70,7 +70,8 @@ public class main {
             System.out.println("1. View Products");
             System.out.println("2. Make Transaction");
             System.out.println("3. Make Payment");
-            System.out.println("4. Logout");
+            System.out.println("4. View Transaction");
+            System.out.println("5. Logout");
             System.out.print("Enter choice: ");
             int option = sc.nextInt();
             sc.nextLine(); // consume newline
@@ -99,16 +100,21 @@ public class main {
                     cf.makePayment(username, transactionId);
                     break;
                 case 4:
-                    System.out.println("Logging out...");
+                     cf.viewTransactions(username);  // Call new method to view transactions
+                    
                     return;
+                case 5:
+                System.out.println("Logging out...");
+                break;
+                    
                 default:
                     System.out.println("Invalid option. Please try again.");
             }
         }
     }
 
-    // Admin menu with add, update, delete, exit
-    private static void adminMenu(Scanner sc, config cf, String username) {
+// Admin menu with add, update, delete, exit
+private static void adminMenu(Scanner sc, config cf, String username) {
         while (true) {
             System.out.println("\nAdmin Menu - Choose an option:");
             System.out.println("1. Add Product");
@@ -131,7 +137,8 @@ public class main {
                     cf.addProduct(name, price, stock, username);
                     break;
                 case 2:
-                    System.out.print("Enter product id to update: ");
+                    cf.viewProducts();
+                    System.out.print("Enter id to update: ");
                     int updateId = sc.nextInt();
                     sc.nextLine();
                     System.out.print("Enter new product name: ");
@@ -144,7 +151,8 @@ public class main {
                     cf.updateProduct(updateId, newName, newPrice, newStock, username);
                     break;
                 case 3:
-                    System.out.print("Enter product id to delete: ");
+                    cf.viewProducts();
+                    System.out.print("Enter new product stock quantity: ");
                     int deleteId = sc.nextInt();
                     sc.nextLine();
                     cf.deleteProduct(deleteId, username);
