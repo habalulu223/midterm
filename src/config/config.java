@@ -8,20 +8,17 @@ import java.sql.SQLException;
 
 public class config {
 
-    // Connect to SQLite database
     public Connection connectDB() {
         Connection con = null;
         try {
-            Class.forName("org.sqlite.JDBC"); // Load the SQLite JDBC driver
-            con = DriverManager.getConnection("jdbc:sqlite:gradingsystemdb.db"); // Establish connection
-            System.out.println("Connection Successful");
+            Class.forName("org.sqlite.JDBC");            
+            con = DriverManager.getConnection("jdbc:sqlite:gradingsystemdb.db");
         } catch (Exception e) {
             System.out.println("Connection Failed: " + e);
         }
         return con;
     }
 
-    // Generic method to add records with variable arguments
     public void addRecord(String sql, Object... values) {
         try (Connection conn = this.connectDB();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -56,9 +53,13 @@ public class config {
     }
 
     // Register a new user if username does not exist
-    public boolean registerUser (String username, String password) {
+    public boolean registerUser(String username, String password) {
+        // Assume 'status' is 'pending' by default in the user table or set it here.
+        // I'll adjust the logic to assume a 'status' column exists and is set to 'pending'
+        // during registration, as implied by the main class logic ("Awaiting admin approval.").
         String checkSql = "SELECT user_id FROM tbl_user WHERE username = ?";
-        String insertSql = "INSERT INTO tbl_user(username, password, role) VALUES (?, ?, 'user')";
+        // Corrected SQL to include 'status' column. Assuming 'role' is 'user' by default.
+        String insertSql = "INSERT INTO tbl_user(username, password, role, status) VALUES (?, ?, 'user', 'pending')";
 
         try (Connection conn = this.connectDB();
              PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
@@ -79,32 +80,33 @@ public class config {
             }
 
         } catch (SQLException e) {
-            System.out.println("Error in register:User  " + e.getMessage());
+            System.out.println("Error in register: User " + e.getMessage());
             return false;
         }
     }
 
-    // Login user by verifying username and password
-    public boolean loginUser (String loginUser , String loginPass) {
-        String sql = "SELECT password FROM tbl_user WHERE username = ?";
+    
+    public boolean loginUser(String loginUser, String loginPass) {
+      
+        String sql = "SELECT password FROM tbl_user WHERE username = ? AND status = 'approved'";
 
         try (Connection conn = this.connectDB();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, loginUser );
+            pstmt.setString(1, loginUser);
             ResultSet rs = pstmt.executeQuery();
 
             if (rs.next()) {
                 String storedPass = rs.getString("password");
-                // For production, compare hashed passwords
+               
                 return storedPass.equals(loginPass);
             } else {
-                // Username not found
+              
                 return false;
             }
 
         } catch (SQLException e) {
-            System.out.println("Error in login:User  " + e.getMessage());
+            System.out.println("Error in login: User " + e.getMessage());
             return false;
         }
     }
@@ -150,198 +152,559 @@ public class config {
         return false;
     }
 
+
     public void viewProducts() {
-    String sql = "SELECT product_id, name, price, stock FROM tbl_products";
-    try (Connection conn = this.connectDB();
-         PreparedStatement pstmt = conn.prepareStatement(sql);
-         ResultSet rs = pstmt.executeQuery()) {
-        System.out.println("-------------------------------------------------");
-        System.out.printf("%-10s %-20s %-10s %-10s%n", "Product ID", "Name", "Price", "Stock");
-        System.out.println("-------------------------------------------------");
-        boolean hasProducts = false;
-        while (rs.next()) {
-            hasProducts = true;
-            int productId = rs.getInt("product_id");
-            String name = rs.getString("name");
-            double price = rs.getDouble("price");
-            int stock = rs.getInt("stock");
-            System.out.printf("%-10d %-20s %-10.2f %-10d%n", productId, name, price, stock);
-        }
-        if (!hasProducts) {
-            System.out.println("No products available.");
-        }
-        System.out.println("-------------------------------------------------");
-    } catch (SQLException e) {
-        System.out.println("Error viewing products: " + e.getMessage());
-    }
-}
-
-    public void makeTransaction(String username,int user_id, int productId, int quantity) {
-    String usersql = "SELECT user_id From tbl_user = ?";
-    String productSql = "SELECT price, stock FROM tbl_products WHERE product_id = ?";
-    String insertTransactionSql = "INSERT INTO tbl_transactions(username, product_id, quantity, total_price, status, transaction_date) VALUES (?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)";
-    String updateStockSql = "UPDATE tbl_products SET stock = stock - ? WHERE product_id = ?";
-
-    try (Connection conn = this.connectDB()) {
-        conn.setAutoCommit(false); // Start transaction
-
-        // Check product availability
-        try (PreparedStatement productStmt = conn.prepareStatement(productSql)) {
-            productStmt.setInt(1, productId);
-            try (ResultSet rs = productStmt.executeQuery()) {
-                if (!rs.next()) {
-                    System.out.println("Product not found.");
-                    conn.rollback();
-                    return;
-                }
-
+        String sql = "SELECT product_id, name, price, stock FROM tbl_products";
+        try (Connection conn = this.connectDB();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            System.out.println("-------------------------------------------------");
+            System.out.printf("%-10s %-20s %-10s %-10s%n", "Product ID", "Name", "Price", "Stock");
+            System.out.println("-------------------------------------------------");
+            boolean hasProducts = false;
+            while (rs.next()) {
+                hasProducts = true;
+                int productId = rs.getInt("product_id");
+                String name = rs.getString("name");
                 double price = rs.getDouble("price");
                 int stock = rs.getInt("stock");
+                System.out.printf("%-10d %-20s %-10.2f %-10d%n", productId, name, price, stock);
+            }
+            if (!hasProducts) {
+                System.out.println("No products available.");
+            }
+            System.out.println("-------------------------------------------------");
+        } catch (SQLException e) {
+            System.out.println("Error viewing products: " + e.getMessage());
+        }
+    }
+    
+    // ⚠️ CORRECTED IMPLEMENTATION: Use user_id from the main class argument
+    public void makeTransaction(String username, int user_id, int productId, int quantity) {
+        // The user_id is passed from main.java (after calling getUserId(username)), 
+        // but the method logic had a redundant/incorrect call inside. 
+        // I'll assume the passed 'user_id' is the correct one.
+        int userId = user_id; 
 
-                if (stock < quantity) {
-                    System.out.println("Insufficient stock. Available: " + stock);
+        if (userId <= 0) {
+            System.out.println("User ID is invalid. Please contact admin.");
+            return;
+        }
+
+        String productSql = "SELECT price, stock FROM tbl_products WHERE product_id = ?";
+        String insertTransactionSql = "INSERT INTO tbl_transactions(user_id, product_id, quantity, total_price, status, transaction_date) VALUES ( ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)";
+        String updateStockSql = "UPDATE tbl_products SET stock = stock - ? WHERE product_id = ?";
+
+        try (Connection conn = this.connectDB()) {
+            conn.setAutoCommit(false); // Start Transaction
+
+            try (PreparedStatement productStmt = conn.prepareStatement(productSql)) {
+                productStmt.setInt(1, productId);
+                try (ResultSet rs = productStmt.executeQuery()) {
+                    if (!rs.next()) {
+                        System.out.println("Product not found.");
+                        conn.rollback();
+                        return;
+                    }
+
+                    double price = rs.getDouble("price");
+                    int stock = rs.getInt("stock");
+
+                    if (stock < quantity) {
+                        System.out.println("Insufficient stock. Available: " + stock);
+                        conn.rollback();
+                        return;
+                    }
+
+                    double totalPrice = price * quantity;
+
+                    // Insert transaction
+                    try (PreparedStatement insertStmt = conn.prepareStatement(insertTransactionSql)) {
+                        insertStmt.setInt(1, userId);
+                        insertStmt.setInt(2, productId);
+                        insertStmt.setInt(3, quantity);
+                        insertStmt.setDouble(4, totalPrice);
+
+                        int rowsInserted = insertStmt.executeUpdate();
+                        if (rowsInserted == 0) {
+                            System.out.println("Failed to create transaction.");
+                            conn.rollback();
+                            return;
+                        }
+                    }
+
+                    // Update product stock
+                    try (PreparedStatement updateStockStmt = conn.prepareStatement(updateStockSql)) {
+                        updateStockStmt.setInt(1, quantity);
+                        updateStockStmt.setInt(2, productId);
+
+                        int rowsUpdated = updateStockStmt.executeUpdate();
+                        if (rowsUpdated == 0) {
+                            System.out.println("Failed to update product stock.");
+                            conn.rollback();
+                            return;
+                        }
+                    }
+
+                    conn.commit();
+                    System.out.println("Transaction successful! Total price: " + totalPrice);
+                }
+            } catch (SQLException e) {
+                conn.rollback();
+                System.out.println("Error during transaction: " + e.getMessage());
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.out.println("Database error: " + e.getMessage());
+        }
+    }
+
+    public void viewTransactions(String username) {
+        int userId = getUserId(username);
+        if (userId == -1) {
+            System.out.println("User not found.");
+            return;
+        }
+
+        String sql = "SELECT t.transaction_id, p.name, t.quantity, t.total_price, t.status, t.transaction_date " +
+                     "FROM tbl_transactions t " +
+                     "JOIN tbl_products p ON t.product_id = p.product_id " +
+                     "WHERE t.user_id = ?";
+
+        try (Connection conn = this.connectDB();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                System.out.println("------------------------------------------------------------------------------------");
+                System.out.printf("%-15s %-20s %-10s %-15s %-10s %-20s%n",
+                                  "Transaction ID", "Product Name", "Quantity", "Total Price", "Status", "Date");
+                System.out.println("------------------------------------------------------------------------------------");
+
+                boolean hasTransactions = false;
+                while (rs.next()) {
+                    hasTransactions = true;
+                    int transactionId = rs.getInt("transaction_id");
+                    String productName = rs.getString("name");
+                    int quantity = rs.getInt("quantity");
+                    double totalPrice = rs.getDouble("total_price");
+                    String status = rs.getString("status");
+                    String date = rs.getString("transaction_date");
+
+                    System.out.printf("%-15d %-20s %-10d %-15.2f %-10s %-20s%n",
+                                      transactionId, productName, quantity, totalPrice, status, date);
+                }
+
+                if (!hasTransactions) {
+                    System.out.println("No transactions found for user: " + username);
+                }
+                System.out.println("------------------------------------------------------------------------------------");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error viewing transactions: " + e.getMessage());
+        }
+    }
+    
+    // ⚠️ CORRECTED IMPLEMENTATION: Updated SQL table name from tbl_transaction to tbl_transactions
+    public void updateTransaction(int transactionId, int newQuantity, String newStatus, String username) {
+        
+        // This method currently receives 'newStatus' but in your main class the user is only prompted for newQuantity.
+        // I will update the signature and logic to match the main class's use case, which only passes username twice (likely a typo, should be username and an irrelevant string, but I'll use the one for the user's name).
+        
+        // Corrected signature to match main.java's call: cf.updateTransaction(transactionid, newquantity, username, username);
+        // I will assume the third argument is the USERNAME (to check ownership) and the fourth is irrelevant or a mistake.
+        
+        // **I'll redefine the method to be cleaner, assuming the user only updates quantity.**
+        updateTransaction(transactionId, newQuantity, username);
+    }
+    
+    // 🚀 NEW METHOD SIGNATURE for cleaner update (matching common use case)
+    public void updateTransaction(int transactionId, int newQuantity, String username) {
+        
+        int userId = getUserId(username);
+        if (userId == -1) {
+            System.out.println("User not found or not logged in.");
+            return;
+        }
+
+        String selectTransactionSql = "SELECT user_id, product_id, quantity, status FROM tbl_transactions WHERE transaction_id = ?";
+        String selectProductStockSql = "SELECT stock, price FROM tbl_products WHERE product_id = ?";
+        String updateTransactionSql = "UPDATE tbl_transactions SET quantity = ?, total_price = ? WHERE transaction_id = ?";
+        String updateProductStockSql = "UPDATE tbl_products SET stock = ? WHERE product_id = ?";
+
+        try (Connection conn = this.connectDB()) {
+            conn.setAutoCommit(false); // Start transaction
+
+            int productId;
+            int oldQuantity;
+            int currentStock;
+            double pricePerUnit;
+            String status;
+            int ownerId;
+
+            // Get current transaction details
+            try (PreparedStatement selectTransactionStmt = conn.prepareStatement(selectTransactionSql)) {
+                selectTransactionStmt.setInt(1, transactionId);
+                try (ResultSet rs = selectTransactionStmt.executeQuery()) {
+                    if (!rs.next()) {
+                        System.out.println("Transaction with ID " + transactionId + " not found.");
+                        conn.rollback();
+                        return;
+                    }
+                    ownerId = rs.getInt("user_id");
+                    productId = rs.getInt("product_id");
+                    oldQuantity = rs.getInt("quantity");
+                    status = rs.getString("status");
+                }
+            }
+            
+            if (ownerId != userId) {
+                System.out.println("Access denied. You can only update your own transactions.");
+                conn.rollback();
+                return;
+            }
+            
+            if ("paid".equalsIgnoreCase(status)) {
+                System.out.println("Cannot update a paid transaction.");
+                conn.rollback();
+                return;
+            }
+            
+            if (newQuantity <= 0) {
+                System.out.println("Quantity must be greater than zero. To remove, use the delete option.");
+                conn.rollback();
+                return;
+            }
+
+            // Get current product stock and price
+            try (PreparedStatement selectProductStockStmt = conn.prepareStatement(selectProductStockSql)) {
+                selectProductStockStmt.setInt(1, productId);
+                try (ResultSet rs = selectProductStockStmt.executeQuery()) {
+                    if (!rs.next()) {
+                        System.out.println("Product with ID " + productId + " not found.");
+                        conn.rollback();
+                        return;
+                    }
+                    currentStock = rs.getInt("stock");
+                    pricePerUnit = rs.getDouble("price");
+                }
+            }
+
+            int quantityDifference = newQuantity - oldQuantity; // Positive if increased, negative if decreased.
+            int newRequiredStock = currentStock - quantityDifference;
+
+            // Check if stock is sufficient if quantity increased
+            if (newRequiredStock < 0) {
+                System.out.println("Insufficient stock to increase quantity. Available stock: " + currentStock);
+                conn.rollback();
+                return;
+            }
+
+            double newTotalPrice = pricePerUnit * newQuantity;
+
+            // Update transaction
+            try (PreparedStatement updateTransactionStmt = conn.prepareStatement(updateTransactionSql)) {
+                updateTransactionStmt.setInt(1, newQuantity);
+                updateTransactionStmt.setDouble(2, newTotalPrice);
+                updateTransactionStmt.setInt(3, transactionId);
+
+                int rowsUpdated = updateTransactionStmt.executeUpdate();
+                if (rowsUpdated == 0) {
+                    System.out.println("Failed to update transaction record.");
                     conn.rollback();
                     return;
                 }
+            }
 
-                double totalPrice = price * quantity;
+            // Update product stock
+            try (PreparedStatement updateProductStockStmt = conn.prepareStatement(updateProductStockSql)) {
+                updateProductStockStmt.setInt(1, newRequiredStock);
+                updateProductStockStmt.setInt(2, productId);
 
-                // Insert transaction
-                try (PreparedStatement insertStmt = conn.prepareStatement(insertTransactionSql)) {
-                    insertStmt.setString(1, username);
-                    insertStmt.setInt(2, productId);
-                    insertStmt.setInt(3, quantity);
-                    insertStmt.setDouble(4, totalPrice);
+                int rowsUpdated = updateProductStockStmt.executeUpdate();
+                if (rowsUpdated == 0) {
+                    System.out.println("Failed to update product stock.");
+                    conn.rollback();
+                    return;
+                }
+            }
 
-                    int rowsInserted = insertStmt.executeUpdate();
-                    if (rowsInserted == 0) {
-                        System.out.println("Failed to create transaction.");
+            conn.commit();
+            System.out.println("Transaction updated successfully. New total: " + newTotalPrice);
+
+        } catch (SQLException e) {
+            System.out.println("Error updating transaction: " + e.getMessage());
+            // Rollback is implicitly handled by the try-with-resources if an exception occurs
+        }
+    }
+    
+    // ⚠️ CORRECTED IMPLEMENTATION: Updated SQL table name from tbl_treansaction to tbl_transactions
+    // Also re-added the quantity refund for deleted transactions
+    public void deleteTransaction(int transactionId, String username) {
+        
+        int userId = getUserId(username);
+        if (userId == -1) {
+            System.out.println("User not found.");
+            return;
+        }
+
+        String checkOwnershipSql = "SELECT user_id, status, product_id, quantity FROM tbl_transactions WHERE transaction_id = ?";
+        String deleteSql = "DELETE FROM tbl_transactions WHERE transaction_id = ?";
+        String updateStockSql = "UPDATE tbl_products SET stock = stock + ? WHERE product_id = ?";
+
+
+        try (Connection conn = this.connectDB()) {
+            conn.setAutoCommit(false);
+            
+            int ownerId = -1;
+            String status = null;
+            int productId = -1;
+            int quantity = 0;
+
+            try (PreparedStatement checkStmt = conn.prepareStatement(checkOwnershipSql)) {
+                checkStmt.setInt(1, transactionId);
+                try (ResultSet rs = checkStmt.executeQuery()) {
+                    if (!rs.next()) {
+                        System.out.println("Transaction with ID " + transactionId + " not found.");
+                        conn.rollback();
+                        return;
+                    }
+                    ownerId = rs.getInt("user_id");
+                    status = rs.getString("status");
+                    productId = rs.getInt("product_id");
+                    quantity = rs.getInt("quantity");
+
+                    if (ownerId != userId) {
+                        System.out.println("Access denied. You can only delete your own transactions.");
+                        conn.rollback();
+                        return;
+                    }
+                    
+                    if ("paid".equalsIgnoreCase(status)) {
+                        System.out.println("Cannot delete a paid transaction.");
                         conn.rollback();
                         return;
                     }
                 }
+            }
 
-                // Update product stock
-                try (PreparedStatement updateStockStmt = conn.prepareStatement(updateStockSql)) {
-                    updateStockStmt.setInt(1, quantity);
-                    updateStockStmt.setInt(2, productId);
-
-                    int rowsUpdated = updateStockStmt.executeUpdate();
-                    if (rowsUpdated == 0) {
-                        System.out.println("Failed to update product stock.");
-                        conn.rollback();
-                        return;
-                    }
+            // 1. Delete transaction
+            try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                deleteStmt.setInt(1, transactionId);
+                int rowsDeleted = deleteStmt.executeUpdate();
+                
+                if (rowsDeleted == 0) {
+                    System.out.println("Failed to delete transaction.");
+                    conn.rollback();
+                    return;
                 }
+            }
+            
+            // 2. Refund stock
+            try (PreparedStatement updateStockStmt = conn.prepareStatement(updateStockSql)) {
+                updateStockStmt.setInt(1, quantity);
+                updateStockStmt.setInt(2, productId);
+                
+                int rowsUpdated = updateStockStmt.executeUpdate();
+                if (rowsUpdated == 0) {
+                    System.out.println("Failed to refund product stock. Deletion failed.");
+                    conn.rollback();
+                    return;
+                }
+            }
 
-                conn.commit();
-                System.out.println("Transaction successful! Total price: " + totalPrice);
+            conn.commit();
+            System.out.println("Transaction deleted and stock refunded successfully.");
+            
+        } catch (SQLException e) {
+            System.out.println("Error deleting transaction: " + e.getMessage());
+        }
+    }
+
+
+    // 🚀 NEW IMPLEMENTATION: Update Product
+    public void updateProduct(int updateId, String newName, double newPrice, int newStock, String username) {
+        if (!isAdmin(username)) {
+            System.out.println("Access denied. Only admin can update products.");
+            return;
+        }
+        
+        String sql = "UPDATE tbl_products SET name = ?, price = ?, stock = ? WHERE product_id = ?";
+        try (Connection conn = this.connectDB();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, newName);
+            pstmt.setDouble(2, newPrice);
+            pstmt.setInt(3, newStock);
+            pstmt.setInt(4, updateId);
+            
+            int rowsUpdated = pstmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                System.out.println("Product with ID " + updateId + " updated successfully.");
+            } else {
+                System.out.println("Product with ID " + updateId + " not found.");
             }
         } catch (SQLException e) {
-            conn.rollback();
-            System.out.println("Error during transaction: " + e.getMessage());
-        } finally {
-            conn.setAutoCommit(true);
+            System.out.println("Error updating product: " + e.getMessage());
         }
-    } catch (SQLException e) {
-        System.out.println("Database error: " + e.getMessage());
     }
-}
-public void viewTransactions(String username) {
-    String sql = "SELECT t.transaction_id, p.name AS product_name, t.quantity, t.total_price, t.status, t.transaction_date " +
-                 "FROM tbl_transactions t " +
-                 "JOIN tbl_products p ON t.product_id = p.product_id " +
-                 "JOIN tbl_user u ON t.user_id = u.user_id " +
-                 "WHERE u.username = ? " +
-                 "ORDER BY t.transaction_date DESC";
 
-    try (Connection conn = this.connectDB();
-         PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-        pstmt.setString(1, username);
-
-        try (ResultSet rs = pstmt.executeQuery()) {
-            System.out.println("\nTransactions for user: " + username);
-            System.out.println("--------------------------------------------------------------------------------");
-            System.out.printf("%-15s %-20s %-10s %-15s %-12s %-20s%n", 
-                              "Transaction ID", "Product Name", "Quantity", "Total Price", "Status", "Date");
-            System.out.println("--------------------------------------------------------------------------------");
-
-            boolean hasTransactions = false;
-            while (rs.next()) {
-                hasTransactions = true;
-                int transactionId = rs.getInt("transaction_id");
-                String productName = rs.getString("product_name");
-                int quantity = rs.getInt("quantity");
-                double totalPrice = rs.getDouble("total_price");
-                String status = rs.getString("status");
-                String date = rs.getString("transaction_date");
-
-                System.out.printf("%-15d %-20s %-10d %-15.2f %-12s %-20s%n",
-                                  transactionId, productName, quantity, totalPrice, status, date);
+    // 🚀 NEW IMPLEMENTATION: Get User ID
+    public int getUserId(String username) {
+        String sql = "SELECT user_id FROM tbl_user WHERE username = ?";
+        try (Connection conn = this.connectDB();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("user_id");
             }
-
-            if (!hasTransactions) {
-                System.out.println("No transactions found.");
-            }
-            System.out.println("--------------------------------------------------------------------------------");
+        } catch (SQLException e) {
+            System.out.println("Error getting user ID: " + e.getMessage());
         }
-
-    } catch (SQLException e) {
-        System.out.println("Error viewing transactions: " + e.getMessage());
+        return -1;
     }
-}
 
 
+    public void deleteProduct(int deleteId, String username) {
+        if (!isAdmin(username)) {
+            System.out.println("Access denied. Only admin can delete products.");
+            return;
+        }
+        String sql = "DELETE FROM tbl_products WHERE product_id = ?";
+        try (Connection conn = this.connectDB();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, deleteId);
+            int rowsDeleted = pstmt.executeUpdate();
+            if (rowsDeleted > 0) {
+                System.out.println("Product deleted successfully.");
+            } else {
+                System.out.println("Product with ID " + deleteId + " not found.");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error deleting product: " + e.getMessage());
+        }
+    }
+
+    // 🚀 NEW IMPLEMENTATION: Make Payment
     public void makePayment(String username, int transactionId) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        int userId = getUserId(username);
+        if (userId == -1) {
+            System.out.println("User not found.");
+            return;
+        }
+
+        String sql = "UPDATE tbl_transactions SET status = 'paid' WHERE transaction_id = ? AND user_id = ? AND status = 'pending'";
+
+        try (Connection conn = this.connectDB();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, transactionId);
+            pstmt.setInt(2, userId);
+
+            int rowsUpdated = pstmt.executeUpdate();
+
+            if (rowsUpdated > 0) {
+                System.out.println("Payment for Transaction ID " + transactionId + " successful! Status set to 'paid'.");
+            } else {
+                // This could mean the ID wasn't found, the user doesn't own it, or it was already paid.
+                System.out.println("Payment failed. Transaction ID " + transactionId + " not found, not owned by you, or already paid.");
+            }
+
+        } catch (SQLException e) {
+            System.out.println("Error making payment: " + e.getMessage());
+        }
     }
 
-    public void updateProduct(int updateId, String newName, double newPrice, int newStock, String username) {
-    if (!isAdmin(username)) {
-        System.out.println("Access denied. Only admin can update products.");
-        return;
+    public void viewPendingUsers() {
+        // Assume a 'status' column exists in tbl_user
+        String sql = "SELECT username FROM tbl_user WHERE status = 'pending'";
+        try (Connection conn = connectDB(); 
+             PreparedStatement stmt = conn.prepareStatement(sql); 
+             ResultSet rs = stmt.executeQuery()) {
+            
+            System.out.println("Pending Users:");
+            boolean hasPending = false;
+            while (rs.next()) {
+                hasPending = true;
+                System.out.println("- Username: " + rs.getString("username"));
+            }
+            if (!hasPending) {
+                System.out.println("No pending users.");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error viewing pending users: " + e.getMessage());
+        }
     }
+    
+    public boolean approveUser(String username) {
+        // Assume a 'status' column exists in tbl_user
+        String sql = "UPDATE tbl_user SET status = 'approved' WHERE username = ? AND status = 'pending'";
+        try (Connection conn = connectDB(); 
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            int rowsUpdated = stmt.executeUpdate();
+            return rowsUpdated > 0;
+        } catch (SQLException e) {
+            System.out.println("Error approving user: " + e.getMessage());
+            return false;
+        }
+    }
+ public void adminDeleteTransaction(int transactionId, String adminUsername) {
+    String deleteSql = "DELETE FROM tbl_transactions WHERE transaction_id = ?";
+    Connection conn = null;
+    PreparedStatement pstmt = null;
 
-    String sql = "UPDATE tbl_products SET name = ?, price = ?, stock = ? WHERE product_id = ?";
+    try {
+        // 1. Get database connection
+        conn = connectDB(); // Assumes connectDB() handles the connection details
 
-    try (Connection conn = this.connectDB();
-         PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        if (conn == null) {
+            System.out.println("❌ Database connection failed. Cannot delete transaction.");
+            return;
+        }
 
-        pstmt.setString(1, newName);
-        pstmt.setDouble(2, newPrice);
-        pstmt.setInt(3, newStock);
-        pstmt.setInt(4, updateId);
+        // 2. Optional: Check if the transaction exists before attempting to delete
+        if (!checkTransactionExists(conn, transactionId)) {
+            System.out.println("⚠️ Error: Transaction ID " + transactionId + " does not exist.");
+            return;
+        }
 
-        int rowsUpdated = pstmt.executeUpdate();
+        // 3. Prepare and execute the DELETE statement
+        pstmt = conn.prepareStatement(deleteSql);
+        pstmt.setInt(1, transactionId);
 
-        if (rowsUpdated > 0) {
-            System.out.println("Product updated successfully.");
+        int rowsAffected = pstmt.executeUpdate();
+
+        if (rowsAffected > 0) {
+            System.out.println("✅ ADMIN ACTION: Transaction ID " + transactionId + " successfully deleted by " + adminUsername + ".");
         } else {
-            System.out.println("Product with ID " + updateId + " not found.");
+            System.out.println("Error: Failed to delete transaction ID " + transactionId + ".");
         }
 
     } catch (SQLException e) {
-        System.out.println("Error updating product: " + e.getMessage());
+        System.out.println("SQL Error during admin transaction deletion: " + e.getMessage());
+    } finally {
+        // 4. Close resources
+        try {
+            if (pstmt != null) pstmt.close();
+            if (conn != null) conn.close();
+        } catch (SQLException e) {
+            System.out.println("Error closing resources: " + e.getMessage());
+        }
     }
 }
-public void deleteProduct(int deleteId, String username) {
-    if (!isAdmin(username)) {
-        System.out.println("Access denied. Only admin can delete products.");
-        return;
-    }
-    String sql = "DELETE FROM tbl_products WHERE product_id = ?";
-    try (Connection conn = this.connectDB();
-         PreparedStatement pstmt = conn.prepareStatement(sql)) {
-        pstmt.setInt(1, deleteId);
-        int rowsDeleted = pstmt.executeUpdate();
-        if (rowsDeleted > 0) {
-            System.out.println("Product deleted successfully.");
-        } else {
-            System.out.println("Product with ID " + deleteId + " not found.");
+
+private boolean checkTransactionExists(Connection conn, int transactionId) throws SQLException {
+    String checkSql = "SELECT COUNT(*) FROM tbl_transactions WHERE transaction_id = ?";
+    try (PreparedStatement checkPstmt = conn.prepareStatement(checkSql)) {
+        checkPstmt.setInt(1, transactionId);
+        try (ResultSet rs = checkPstmt.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
         }
-    } catch (SQLException e) {
-        System.out.println("Error deleting product: " + e.getMessage());
     }
+    return false;
 }
 }
