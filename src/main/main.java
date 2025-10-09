@@ -1,16 +1,14 @@
 package main;
 
-import config.config; // Import the config class
-import java.util.InputMismatchException; // Import for better error handling
+import config.config; 
+import java.util.InputMismatchException;
 import java.util.Scanner;
 
 public class main {
     public static void main(String[] args) {
         config cf = new config();
         
-        // Note: In your original design, connectDB returns a Connection object, 
-        // but the main logic doesn't store it. We'll rely on cf.connectDB() being called 
-        // inside every config method, which is how your config is structured.
+       
         System.out.println("Initializing Application...");
 
         Scanner sc = new Scanner(System.in);
@@ -25,10 +23,10 @@ public class main {
             int choice = -1;
             try {
                 choice = sc.nextInt();
-                sc.nextLine(); // consume newline
+                sc.nextLine();
             } catch (InputMismatchException e) {
                 System.out.println("Invalid input. Please enter a number.");
-                sc.nextLine(); // Clear the invalid input
+                sc.nextLine(); 
                 continue;
             }
 
@@ -37,9 +35,11 @@ public class main {
                     // Register new user
                     System.out.print("Enter desired username: ");
                     String username = sc.nextLine();
+                    System.out.print("Enter Email: ");
+                    String Gmail = sc.nextLine();
                     System.out.print("Enter password: ");
                     String password = sc.nextLine();
-                    boolean registered = cf.registerUser(username, password);
+                    boolean registered = cf.registerUser(username, password, Gmail);
                     if (registered) {
                         System.out.println("Registration successful! Awaiting admin approval.");
                     } else {
@@ -49,7 +49,7 @@ public class main {
 
                 case 2:
                     // Login existing user
-                    System.out.print("Enter username: ");
+                    System.out.print("Enter Gmail: ");
                     String loginUser = sc.nextLine();
                     System.out.print("Enter password: ");
                     String loginPass = sc.nextLine();
@@ -191,8 +191,10 @@ private static void adminMenu(Scanner sc, config cf, String username) {
         System.out.println("3. Delete Product");
         System.out.println("4. View Pending Users");
         System.out.println("5. Approve User");
-        System.out.println("6. Delete ANY Transaction"); // <-- NEW OPTION
-        System.out.println("7. Logout");
+        System.out.println("6. Delete ANY Transaction");
+        System.out.println("7. Add user as admin");
+        System.out.println("8 View accounts");
+        System.out.println("9. Logout");
         System.out.print("Enter choice: ");
 
         int option = -1;
@@ -284,6 +286,20 @@ private static void adminMenu(Scanner sc, config cf, String username) {
                 }
                 break;
             case 7:
+                cf.viewUsers();
+                System.out.print("Enter account name to prromote as admin: ");
+                String userToPromote = sc.nextLine();
+                boolean success = cf.makeUserAdmin(userToPromote, username); 
+                if (success) {
+                    System.out.println("User '" + userToPromote + "' has been successfully promoted to Admin. 🎉");
+                } else {
+                    System.out.println("Failed to promote user. Check if the user exists and is not already an admin.");
+                }
+                break;
+            case 8:
+                cf.viewUsers();
+                break;
+            case 9:
                 System.out.println("Logging out " + username + "...");
                 return; // Exit admin menu loop
             default:

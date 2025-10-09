@@ -52,14 +52,12 @@ public class config {
         }
     }
 
-    // Register a new user if username does not exist
-    public boolean registerUser(String username, String password) {
-        // Assume 'status' is 'pending' by default in the user table or set it here.
-        // I'll adjust the logic to assume a 'status' column exists and is set to 'pending'
-        // during registration, as implied by the main class logic ("Awaiting admin approval.").
+    
+    public boolean registerUser(String username, String password, String Gmail) {
+        
         String checkSql = "SELECT user_id FROM tbl_user WHERE username = ?";
-        // Corrected SQL to include 'status' column. Assuming 'role' is 'user' by default.
-        String insertSql = "INSERT INTO tbl_user(username, password, role, status) VALUES (?, ?, 'user', 'pending')";
+
+        String insertSql = "INSERT INTO tbl_user(username, email, password, role, status) VALUES (?, ?, ?, 'user', 'pending')";
 
         try (Connection conn = this.connectDB();
              PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
@@ -74,7 +72,8 @@ public class config {
 
             try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
                 insertStmt.setString(1, username);
-                insertStmt.setString(2, password); // For production, hash the password!
+                insertStmt.setString(2,Gmail);
+                insertStmt.setString(3, password); 
                 int rows = insertStmt.executeUpdate();
                 return rows > 0;
             }
@@ -88,7 +87,7 @@ public class config {
     
     public boolean loginUser(String loginUser, String loginPass) {
       
-        String sql = "SELECT password FROM tbl_user WHERE username = ? AND status = 'approved'";
+        String sql = "SELECT password FROM tbl_user WHERE email = ? AND status = 'approved'";
 
         try (Connection conn = this.connectDB();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -113,7 +112,7 @@ public class config {
 
     // Check if the user is admin
     public boolean isAdmin(String username) {
-        String sql = "SELECT role FROM tbl_user WHERE username = ?";
+        String sql = "SELECT role FROM tbl_user WHERE email = ?";
         try (Connection conn = this.connectDB();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username);
@@ -705,6 +704,75 @@ private boolean checkTransactionExists(Connection conn, int transactionId) throw
             }
         }
     }
+    
     return false;
 }
+  public void viewUsers() {
+    String sql = "SELECT user_id, username, email, status, role FROM tbl_user ORDER BY user_id";
+
+    System.out.println("\n------------------------------------------------------------------");
+    System.out.println("                         ALL REGISTERED USERS");
+    System.out.println("------------------------------------------------------------------");
+    System.out.printf("| %-4s | %-15s | %-25s | %-10s | %-8s |\n", "ID", "USERNAME", "EMAIL", "STATUS", "ROLE");
+    System.out.println("------------------------------------------------------------------");
+
+    try (Connection conn = this.connectDB();
+         PreparedStatement pstmt = conn.prepareStatement(sql);
+         ResultSet rs = pstmt.executeQuery()) {
+
+        boolean hasUsers = false;
+        while (rs.next()) {
+            hasUsers = true;
+            int id = rs.getInt("user_id");
+            String username = rs.getString("username");
+           
+            String email = rs.getString("email");
+            
+            String status = rs.getString("status");
+            String role = rs.getString("role");
+
+            //
+            String displayStatus = status.substring(0, 1).toUpperCase() + status.substring(1); 
+
+            System.out.printf("| %-4d | %-15s | %-25s | %-10s | %-8s |\n", id, username, email, displayStatus, role.toUpperCase());
+        }
+
+        if (!hasUsers) {
+            System.out.println("| No users found.                                                  |");
+        }
+
+        System.out.println("------------------------------------------------------------------");
+
+    } catch (SQLException e) { // ⚠️ BETTER: Catch SQLException instead of generic Exception for better error handling
+        System.out.println("❌ Database Error: Could not retrieve user list. " + e.getMessage());
+    }
+}
+    public boolean makeUserAdmin(String targetUsername, String adminUsername) {
+       
+        String sql = "UPDATE users SET role = 'admin' WHERE username = ? AND role != 'admin'";
+
+        try (Connection conn = this.connectDB();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, targetUsername);
+
+            // executeUpdate returns the number of rows affected
+            int rowsAffected = pstmt.executeUpdate();
+
+            if (rowsAffected > 0) {
+                // Log the action for auditing purposes
+                System.out.println("✅ Audit Log: Admin " + adminUsername + " successfully promoted user " + targetUsername + ".");
+                return true;
+            } else {
+                // If 0 rows were affected, the user was either not found or already an admin.
+                System.out.println("⚠️ Promotion failed: User '" + targetUsername + "' not found, or is already an admin.");
+                return false;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Database Error during Admin Promotion: " + e.getMessage());
+            
+            return false;
+        }
+    }
 }
