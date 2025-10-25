@@ -261,93 +261,6 @@ public class main {
     }
 
     // --------------------------------------------------------------------------------------------------
-    // Customer Management Methods (for Admin Menu)
-    // --------------------------------------------------------------------------------------------------
-
-    private static void addCustomer(Scanner sc, dbConnect cf) {
-        System.out.println("\n--- Add Customer ---");
-        System.out.print("Customer First Name: ");
-        String fname = sc.nextLine();
-        System.out.print("Customer Last Name: ");
-        String lname = sc.nextLine();
-        System.out.print("Customer Email: ");
-        String email = sc.nextLine();
-        System.out.print("Customer Status: ");
-        String status = sc.nextLine();
-
-        String qry = "INSERT INTO tbl_customer (c_fname, c_lname, c_email, c_status) VALUES (?, ?, ?, ?)";
-        cf.addRecord(qry, fname, lname, email, status);
-        viewCustomers(cf);
-    }
-
-    private static void viewCustomers(dbConnect cf) {
-        System.out.println("\n--- View All Customers ---");
-        String qry = "SELECT * FROM tbl_customer";
-        String[] hrds = {"ID", "Firstname", "Lastname", "Email", "Status"};
-        String[] clms = {"c_id", "c_fname", "c_lname", "c_email", "c_status"};
-        cf.viewRecords(qry, hrds, clms);
-    }
-
-    private static void updateCustomer(Scanner sc, dbConnect cf) {
-        viewCustomers(cf);
-        try {
-            System.out.println("\n--- Update Customer ---");
-            System.out.print("Enter ID to Update: ");
-            int id = sc.nextInt();
-            sc.nextLine(); // consume newline
-
-            // Basic validation check 
-            while (cf.getSingleValue("SELECT c_id FROM tbl_customer WHERE c_id = ?", id) == 0) {
-                System.out.println("Selected ID doesn't exist!");
-                System.out.print("Select Customer ID Again: ");
-                id = sc.nextInt();
-                sc.nextLine();
-            }
-
-            System.out.print("New Customer First Name: ");
-            String fname = sc.nextLine();
-            System.out.print("New Customer Last Name: ");
-            String lname = sc.nextLine();
-            System.out.print("New Customer Email: ");
-            String email = sc.nextLine();
-            System.out.print("New Customer Status: ");
-            String status = sc.nextLine();
-
-            String qry = "UPDATE tbl_customer SET c_fname = ?, c_lname = ?, c_email = ?, c_status = ? WHERE c_id = ?";
-            cf.updateRecord(qry, fname, lname, email, status, id);
-            viewCustomers(cf);
-        } catch (InputMismatchException e) {
-            System.out.println("Invalid input. Please enter a number for the ID.");
-            sc.nextLine();
-        }
-    }
-
-    private static void deleteCustomer(Scanner sc, dbConnect cf) {
-        viewCustomers(cf);
-        try {
-            System.out.println("\n--- Delete Customer ---");
-            System.out.print("Enter ID to delete: ");
-            int id = sc.nextInt();
-            sc.nextLine(); // consume newline
-
-            // Basic validation check 
-            while (cf.getSingleValue("SELECT c_id FROM tbl_customer WHERE c_id = ?", id) == 0) {
-                System.out.println("Selected ID doesn't exist!");
-                System.out.print("Select Customer ID Again: ");
-                id = sc.nextInt();
-                sc.nextLine();
-            }
-
-            String qry = "DELETE FROM tbl_customer WHERE c_id = ?";
-            cf.deleteRecord(qry, id);
-            viewCustomers(cf);
-        } catch (InputMismatchException e) {
-            System.out.println("Invalid input. Please enter a number for the ID.");
-            sc.nextLine();
-        }
-    }
-
-    // --------------------------------------------------------------------------------------------------
     // User Account Management Methods (for Admin Menu)
     // --------------------------------------------------------------------------------------------------
 
@@ -413,19 +326,14 @@ public class main {
             System.out.println("1. Add Product");
             System.out.println("2. Update Product");
             System.out.println("3. Delete Product");
-            System.out.println("--- Customer Management ---");
-            System.out.println("4. Add Customer (Non-User)");
-            System.out.println("5. View Customers (Non-User)");
-            System.out.println("6. Update Customer (Non-User)");
-            System.out.println("7. Delete Customer (Non-User)");
             System.out.println("--- User Account Management ---");
-            System.out.println("8. View Pending Users");
-            System.out.println("9. Approve User");
-            System.out.println("10. Promote User to Admin");
-            System.out.println("11. View All Accounts");
+            System.out.println("4. View Pending Users");
+            System.out.println("5. Approve User");
+            System.out.println("6. Promote User to Admin");
+            System.out.println("7. View All Accounts");
             System.out.println("--- Transaction Management ---");
-            System.out.println("12. Delete ANY Transaction (No Stock Restore!)");
-            System.out.println("13. Logout");
+            System.out.println("8. Delete ANY Transaction (No Stock Restore!)");
+            System.out.println("9. Logout");
             System.out.print("Enter choice: ");
 
             int option = -1;
@@ -449,33 +357,21 @@ public class main {
                     deleteProduct(sc, cf, username);
                     break;
                 case 4:
-                    addCustomer(sc, cf);
-                    break;
-                case 5:
-                    viewCustomers(cf);
-                    break;
-                case 6:
-                    updateCustomer(sc, cf);
-                    break;
-                case 7:
-                    deleteCustomer(sc, cf);
-                    break;
-                case 8:
                     viewPendingUsers(cf);
                     break;
-                case 9:
+                case 5:
                     approveUser(sc, cf);
                     break;
-                case 10:
+                case 6:
                     promoteUserToAdmin(sc, cf, username);
                     break;
-                case 11:
+                case 7:
                     viewUsers(cf);
                     break;
-                case 12: 
+                case 8: 
                     deleteAnyTransaction(sc, cf, username);
                     break;
-                case 13:
+                case 9:
                     System.out.println("Logging out " + username + "...");
                     return; // Exit admin menu loop
                 default:
