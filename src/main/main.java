@@ -96,7 +96,7 @@ public class main {
         while (true) {
             System.out.println("\n--- User Menu for " + username + " ---"); 
             System.out.println("1. View Products");
-            System.out.println("2. Make Transaction");
+            System.out.println("2. Add to cart");
             System.out.println("3. Make Payment");
             System.out.println("4. View Transactions");
             System.out.println("5. Update Transaction Quantity");
